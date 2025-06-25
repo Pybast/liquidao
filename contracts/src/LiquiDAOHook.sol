@@ -9,16 +9,16 @@ import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {SwapParams} from "v4-core/src/types/PoolOperation.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
-import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
-import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/src/types/BeforeSwapDelta.sol";
+import {BalanceDelta, BalanceDeltaLibrary} from "v4-core/src/types/BalanceDelta.sol";
 import {IEmailVerifier} from "./interfaces/IEmailVerifier.sol";
 import {VerificationParams} from "./types/VerificationParams.sol";
 import {IImmutableState} from "v4-periphery/src/interfaces/IImmutableState.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract LiquiDAOHook is BaseHook {
     using PoolIdLibrary for PoolKey;
 
-    mapping(PoolId => bytes32) public poolDomainHash;
+    mapping(PoolId => bytes32) public poolMerkleRoot;
 
     IEmailVerifier public immutable EMAIL_VERIFIER;
 
@@ -39,8 +39,8 @@ contract LiquiDAOHook is BaseHook {
             afterAddLiquidity: false,
             beforeRemoveLiquidity: false,
             afterRemoveLiquidity: false,
-            beforeSwap: true,
-            afterSwap: false,
+            beforeSwap: false,
+            afterSwap: true,
             beforeDonate: false,
             afterDonate: false,
             beforeSwapReturnDelta: false,
@@ -50,7 +50,7 @@ contract LiquiDAOHook is BaseHook {
         });
     }
 
-    function initializeLiquiDAOPool(PoolKey memory key, uint160 sqrtPriceX96, bytes32 domainHash)
+    function initializeLiquiDAOPool(PoolKey memory key, uint160 sqrtPriceX96, bytes32 merkleRoot)
         external
         returns (int24 tick)
     {
@@ -60,27 +60,41 @@ contract LiquiDAOHook is BaseHook {
         tick = poolManager.initialize(key, sqrtPriceX96);
 
         // Then setup verification params
-        poolDomainHash[key.toId()] = domainHash;
+        poolMerkleRoot[key.toId()] = merkleRoot;
 
-        emit VerificationParamsSetup(key.toId(), domainHash);
+        emit VerificationParamsSetup(key.toId(), merkleRoot);
+    }
+
+    function updateLiquiDAOPool(PoolKey memory key, bytes32 merkleRoot) external {
+        // TODO only pool owner can update the merkle root
+        if (address(key.hooks) != address(this)) revert WRONG_HOOK();
+        poolMerkleRoot[key.toId()] = merkleRoot;
+        emit VerificationParamsSetup(key.toId(), merkleRoot);
     }
 
     // -----------------------------------------------
     // NOTE: see IHooks.sol for function documentation
     // -----------------------------------------------
 
-    function _beforeSwap(address, PoolKey calldata key, SwapParams calldata, bytes calldata hookData)
-        internal
-        override
-        returns (bytes4, BeforeSwapDelta, uint24)
-    {
+    /**
+     * @dev Hook implementation for `afterSwap`, to be overriden by the inheriting hook. The
+     * flag must be set to true in the `getHookPermissions` function.
+     */
+    function _afterSwap(
+        address sender,
+        PoolKey calldata key,
+        SwapParams calldata params,
+        BalanceDelta delta,
+        bytes calldata hookData
+    ) internal override returns (bytes4, int128) {
         // use hook data to verify that the swap is authorized.
-        bytes32 domainHash = poolDomainHash[key.toId()];
-        bytes memory proof = hookData;
-        (, bool verified) = EMAIL_VERIFIER.verify(proof, domainHash);
+        bytes32 root = poolMerkleRoot[key.toId()];
+        bytes32[] memory proof = abi.decode(hookData, (bytes32[]));
+
+        bool verified = MerkleProof.verify(proof, root, keccak256(abi.encodePacked(sender)));
 
         if (!verified) revert Unauthorized();
 
-        return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+        return (BaseHook.afterSwap.selector, BalanceDeltaLibrary.ZERO_DELTA);
     }
 }
