@@ -56,7 +56,7 @@ contract LiquiDAOHookScript is Script, DeployPermit2 {
         // Deploy the hook using CREATE2 //
         // ----------------------------- //
         vm.broadcast();
-        LiquiDAOHook liquiDAO = new LiquiDAOHook{salt: salt}(manager);
+        LiquiDAOHook liquiDAO = new LiquiDAOHook{salt: salt}(manager, vm.envAddress("LIQUIDAO_HOOK_OWNER"));
         require(address(liquiDAO) == hookAddress, "LiquiDAOHookScript: hook address mismatch");
 
         // Additional helpers for interacting with the pool

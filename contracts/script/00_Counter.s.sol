@@ -26,7 +26,7 @@ contract LiquiDAOHookScript is Script, Constants {
 
         // Deploy the hook using CREATE2
         vm.broadcast();
-        LiquiDAOHook liquiDAO = new LiquiDAOHook{salt: salt}(IPoolManager(POOLMANAGER));
+        LiquiDAOHook liquiDAO = new LiquiDAOHook{salt: salt}(IPoolManager(POOLMANAGER), address(this));
         require(address(liquiDAO) == hookAddress, "LiquiDAOHookScript: hook address mismatch");
     }
 }

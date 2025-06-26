@@ -43,7 +43,7 @@ contract LiquiDAOHookTest is Test, Fixtures {
         address flags = address(
             uint160(Hooks.BEFORE_SWAP_FLAG) ^ (0x4444 << 144) // Namespace the hook to avoid collisions
         );
-        bytes memory constructorArgs = abi.encode(manager); // Add all the necessary constructor arguments from the hook
+        bytes memory constructorArgs = abi.encode(manager, address(this)); // Add all the necessary constructor arguments from the hook
         deployCodeTo("LiquiDAOHook.sol:LiquiDAOHook", constructorArgs, flags);
         hook = LiquiDAOHook(flags);
 

@@ -37,7 +37,7 @@ contract LiquiDAOHook is BaseHook, Ownable {
     error Unauthorized();
     error WRONG_HOOK();
 
-    constructor(IPoolManager _poolManager) BaseHook(_poolManager) Ownable(msg.sender) {}
+    constructor(IPoolManager _poolManager, address _owner) BaseHook(_poolManager) Ownable(_owner) {}
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
