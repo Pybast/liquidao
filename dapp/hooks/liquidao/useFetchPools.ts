@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
-import { createPublicClient, decodeEventLog, http, parseAbiItem } from "viem";
-import { GATED_POOL_HOOK_ADDRESS } from "./helpers";
-import { sepolia } from "viem/chains";
-import { DAO_MAPPING, Pool } from "../../lib/daoMapping";
-import { RPC_URL } from "@/environment";
-import { LiquiDAOHookAbi } from "./abis/LiquiDAOHookAbi";
+import { GetDaoAddressesResponse, DaoPoolWithAddresses } from "@/lib/types/api";
 
 /**
- * Custom hook to fetch all LiquiDAO pools from the GatedPoolHook contract
+ * Custom hook to fetch all LiquiDAO pools from the backend API
  * @returns An object containing the pools, loading state, and error state
  */
 export function useFetchPools() {
-  const [pools, setPools] = useState<Pool[]>([]);
+  const [pools, setPools] = useState<DaoPoolWithAddresses[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -19,55 +14,19 @@ export function useFetchPools() {
     async function fetchPools() {
       try {
         setIsLoading(true);
+        const response = await fetch("/api/dao/addresses");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch pools: ${response.statusText}`);
+        }
+        const result = (await response.json()) as GetDaoAddressesResponse;
 
-        // Create a public client to interact with the blockchain
-        const client = createPublicClient({
-          chain: sepolia,
-          transport: http(RPC_URL),
-        });
-
-        const eventAbi = LiquiDAOHookAbi.find(
-          (el) => el.type === "event" && el.name === "VerificationParamsSetup"
-        );
-
-        if (!eventAbi) {
-          throw new Error("Event ABI not found");
+        if (!result.success || !Array.isArray(result.data)) {
+          throw new Error("Malformed response from backend");
         }
 
-        // Fetch all VerificationParamsSetup events
-        const logs = await client.getLogs({
-          address: GATED_POOL_HOOK_ADDRESS,
-          event: eventAbi,
-          fromBlock: BigInt(8449258), // Start from genesis block
-        });
-
-        // Transform logs into GatedPool objects
-        const fetchedPools = logs.map((log) => {
-          // Properly decode the event log to ensure args are defined
-          const decodedLog = decodeEventLog({
-            abi: [eventAbi],
-            data: log.data,
-            topics: log.topics,
-          });
-
-          // const dao = DAO_MAPPING.find(
-          //   (d) =>
-          //     d.tokenAddress.toLowerCase() ==
-          //     decodedLog.args..toLowerCase()
-          // )!;
-
-          return {
-            name: "Unkown DAO",
-            iconURL: "",
-            token: "Unknown Token",
-            tokenAddress: "0xsomeaddress",
-            poolId: decodedLog.args.poolId as string,
-          } satisfies Pool;
-        });
-
-        setPools(fetchedPools);
+        setPools(result.data);
         setError(null);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching pools:", err);
         setError(
           err instanceof Error ? err : new Error("Failed to fetch pools")
@@ -76,7 +35,6 @@ export function useFetchPools() {
         setIsLoading(false);
       }
     }
-
     fetchPools();
   }, []);
 

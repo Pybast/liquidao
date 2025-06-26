@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/navbar";
 import {
   Building2,
@@ -14,19 +14,65 @@ import {
   Settings,
 } from "lucide-react";
 import useCreateLiquiDAOPool from "@/hooks/liquidao/useCreateLiquiDAOPool";
-import { Address } from "viem";
+import { Address, encodeAbiParameters, keccak256 } from "viem";
 import Link from "next/link";
 import { useAccount } from "wagmi";
 import { generateMerkleTree } from "@/lib/merkle";
 import { USDC_TOKEN_ADDRESS } from "@/environment";
+import { useTokenInfos } from "@/hooks/getTokenInfos";
+import { GATED_POOL_HOOK_ADDRESS } from "@/hooks/liquidao/helpers";
 
 interface PoolCreationParams {
   daoName: string;
-  daoTokenAddress: `0x${string}`;
-  liquidityTokenAddress: `0x${string}`;
+  daoTokenAddress: Address;
+  liquidityTokenAddress: Address;
   eligibleAddresses: Address[];
   tickSpacing: number;
   lpFee: number;
+}
+
+function computePoolId({
+  daoTokenAddress,
+  liquidityTokenAddress,
+  lpFee,
+  tickSpacing,
+  hoook,
+}: {
+  daoTokenAddress: Address;
+  liquidityTokenAddress: Address;
+  lpFee: number;
+  tickSpacing: number;
+  hoook: Address;
+}) {
+  // Compute pool ID by hashing the concatenated pool parameters using viem
+  // This mirrors the Solidity keccak256 hashing of the PoolKey struct
+  const poolKey = {
+    currency0: daoTokenAddress,
+    currency1: liquidityTokenAddress,
+    fee: lpFee,
+    tickSpacing: tickSpacing,
+    hooks: hoook,
+  };
+
+  // Use viem's encodePacked to match Solidity abi.encode
+  return keccak256(
+    encodeAbiParameters(
+      [
+        {
+          name: "poolKey",
+          type: "tuple",
+          components: [
+            { name: "currency0", type: "address" },
+            { name: "currency1", type: "address" },
+            { name: "fee", type: "uint24" },
+            { name: "tickSpacing", type: "int24" },
+            { name: "hooks", type: "address" },
+          ],
+        },
+      ],
+      [poolKey]
+    )
+  );
 }
 
 export default function CreateDAOPage() {
@@ -38,18 +84,20 @@ export default function CreateDAOPage() {
     tickSpacing: 1,
     lpFee: 0,
   });
-  const [addressListInput, setAddressListInput] = useState("");
-  const [submitting, setIsSubmitting] = useState(false);
-  const [success, setIsSuccess] = useState(false);
   const { address } = useAccount();
-  const { createPool, status } = useCreateLiquiDAOPool();
+
+  const [addressListInput, setAddressListInput] = useState("");
+
+  const [submitting, setIsSubmitting] = useState(false);
+
+  const { createPool, status, poolData } = useCreateLiquiDAOPool();
   const isSubmitting = submitting || status === "pending";
-  const isSuccess = success || status === "success";
+
+  const daoTokenInfo = useTokenInfos(formData.daoTokenAddress);
+  const liquidityTokenInfo = useTokenInfos(formData.liquidityTokenAddress);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    console.log("formData", formData);
 
     // Validate required fields
     if (
@@ -64,6 +112,11 @@ export default function CreateDAOPage() {
       return;
     }
 
+    if (!daoTokenInfo.data || !liquidityTokenInfo.data) {
+      alert("Fetching token info...");
+      return;
+    }
+
     setIsSubmitting(true);
 
     if (!address) {
@@ -75,17 +128,14 @@ export default function CreateDAOPage() {
 
     try {
       // Create the pool first
-      await createPool(
-        {
-          daoTokenAddress: formData.daoTokenAddress,
-          liquidityTokenAddress: formData.liquidityTokenAddress,
-          fee: formData.lpFee,
-          initialTickSpacing: formData.tickSpacing,
-          merkleRoot: merkleRoot,
-          owner: address,
-        },
-        setIsSuccess
-      );
+      await createPool({
+        daoTokenAddress: formData.daoTokenAddress,
+        liquidityTokenAddress: formData.liquidityTokenAddress,
+        fee: formData.lpFee,
+        initialTickSpacing: formData.tickSpacing,
+        merkleRoot: merkleRoot,
+        owner: address,
+      });
 
       // Send address list to backend
       const response = await fetch("/api/dao/addresses", {
@@ -95,9 +145,23 @@ export default function CreateDAOPage() {
         },
         body: JSON.stringify({
           daoName: formData.daoName,
-          daoTokenAddress: formData.daoTokenAddress,
+          poolId: computePoolId({
+            daoTokenAddress: formData.daoTokenAddress,
+            liquidityTokenAddress: formData.liquidityTokenAddress,
+            lpFee: formData.lpFee,
+            tickSpacing: formData.tickSpacing,
+            hoook: GATED_POOL_HOOK_ADDRESS,
+          }),
+          poolOwner: address,
           eligibleAddresses: formData.eligibleAddresses,
+          daoTokenAddress: formData.daoTokenAddress,
+          daoTokenName: daoTokenInfo.data.name,
+          daoTokenSymbol: daoTokenInfo.data.symbol,
+          daoTokenDecimals: daoTokenInfo.data.decimals,
           liquidityTokenAddress: formData.liquidityTokenAddress,
+          liquidityTokenName: liquidityTokenInfo.data.name,
+          liquidityTokenSymbol: liquidityTokenInfo.data.symbol,
+          liquidityTokenDecimals: liquidityTokenInfo.data.decimals,
           tickSpacing: formData.tickSpacing,
           lpFee: formData.lpFee,
         }),
@@ -144,7 +208,7 @@ export default function CreateDAOPage() {
     }));
   };
 
-  if (isSuccess) {
+  if (status === "success") {
     return (
       <div className="min-h-screen">
         <Navbar />
@@ -188,11 +252,6 @@ export default function CreateDAOPage() {
                 </div>
 
                 <div className="card-actions justify-center mt-6">
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setIsSuccess(false)}>
-                    Create Another Pool
-                  </button>
                   <Link href="/pools" className="btn btn-accent">
                     View Pools
                   </Link>
@@ -219,6 +278,21 @@ export default function CreateDAOPage() {
 
           <div className="card bg-base-200 shadow-xl">
             <div className="card-body">
+              {/* Error message for unexpected errors */}
+              {status === "error" && (
+                <div className="alert alert-error mb-6">
+                  <AlertCircle className="w-5 h-5" />
+                  <div>
+                    <h4 className="font-semibold">
+                      An unexpected error occurred
+                    </h4>
+                    <p className="text-sm">
+                      Something went wrong during pool creation. Please try
+                      again or check your input values.
+                    </p>
+                  </div>
+                </div>
+              )}
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left Column - DAO & Token Info */}
@@ -265,6 +339,24 @@ export default function CreateDAOPage() {
                         }
                         required
                       />
+                      {/* Token Info Display */}
+                      <div className="mt-2 text-xs text-gray-500 min-h-[1.5em]">
+                        {daoTokenInfo.loading && (
+                          <span>Fetching token info...</span>
+                        )}
+                        {daoTokenInfo.error && (
+                          <span className="text-error">
+                            {daoTokenInfo.error}
+                          </span>
+                        )}
+                        {daoTokenInfo.data && (
+                          <span>
+                            Name: {daoTokenInfo.data.name} | Symbol:{" "}
+                            {daoTokenInfo.data.symbol} | Decimals:{" "}
+                            {daoTokenInfo.data.decimals}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="form-control relative group">
@@ -285,6 +377,24 @@ export default function CreateDAOPage() {
                       <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-base-200 text-xs px-2 py-1 rounded shadow z-10">
                         Locked to USDC
                       </div>
+                      {/* Token Info Display */}
+                      <div className="mt-2 text-xs text-gray-500 min-h-[1.5em]">
+                        {liquidityTokenInfo.loading && (
+                          <span>Fetching token info...</span>
+                        )}
+                        {liquidityTokenInfo.error && (
+                          <span className="text-error">
+                            {liquidityTokenInfo.error}
+                          </span>
+                        )}
+                        {liquidityTokenInfo.data && (
+                          <span>
+                            Name: {liquidityTokenInfo.data.name} | Symbol:{" "}
+                            {liquidityTokenInfo.data.symbol} | Decimals:{" "}
+                            {liquidityTokenInfo.data.decimals}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <h3 className="text-xl font-semibold flex items-center">
@@ -303,9 +413,16 @@ export default function CreateDAOPage() {
                           type="number"
                           className="input input-bordered w-full cursor-not-allowed"
                           value={formData.tickSpacing}
-                          readOnly
+                          // readOnly
+                          onChange={(e) =>
+                            handleInputChange(
+                              "tickSpacing",
+                              Number(e.target.value)
+                            )
+                          }
                           tabIndex={-1}
                           aria-label="Tick Spacing"
+                          required
                         />
                         {/* Tooltip on hover */}
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-base-200 text-xs px-2 py-1 rounded shadow z-10">
@@ -426,7 +543,9 @@ export default function CreateDAOPage() {
                       isSubmitting ||
                       !formData.daoName ||
                       !formData.daoTokenAddress ||
-                      formData.eligibleAddresses.length === 0
+                      formData.eligibleAddresses.length === 0 ||
+                      !daoTokenInfo.data ||
+                      !liquidityTokenInfo.data
                     }>
                     {isSubmitting ? "Creating Pool..." : "Create LiquiDAO Pool"}
                   </button>

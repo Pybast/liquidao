@@ -15,7 +15,7 @@ export default function Navbar() {
           LiquiDAO
         </Link>
       </div>
-      <div className="navbar-center hidden lg:flex">
+      <div className="navbar-center lg:flex">
         <ul className="menu menu-horizontal px-1">
           <li>
             <Link href="/dao/create" className="btn btn-ghost">

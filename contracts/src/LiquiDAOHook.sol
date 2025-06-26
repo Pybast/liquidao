@@ -84,12 +84,10 @@ contract LiquiDAOHook is BaseHook, Ownable {
 
     function addRouter(address _router) external {
         verifiedRouters[_router] = true;
-        console.log("Router added:", _router);
     }
 
     function removeRouter(address _router) external {
         verifiedRouters[_router] = false;
-        console.log("Router removed:", _router);
     }
 
     /**
@@ -111,13 +109,6 @@ contract LiquiDAOHook is BaseHook, Ownable {
         // use hook data to verify that the swap is authorized.
         bytes32 root = liquiDAOPool[key.toId()].merkleRoot;
         bytes32[] memory proof = abi.decode(hookData, (bytes32[]));
-
-        console.log("root");
-        console.logBytes32(root);
-        console.log("swapper");
-        console.log(swapper);
-        console.log("keccak256(abi.encodePacked(swapper))");
-        console.logBytes32(keccak256(abi.encodePacked(swapper)));
 
         bool verified = MerkleProof.verify(proof, root, keccak256(abi.encodePacked(swapper)));
 

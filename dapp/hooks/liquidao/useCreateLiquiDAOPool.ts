@@ -1,22 +1,40 @@
 import { useState, useEffect } from "react";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { GATED_POOL_HOOK_ADDRESS } from "./helpers";
-import { LiquiDAOHookAbi } from "./abis/LiquiDAOHookAbi";
-import { Hex } from "viem";
+import { LiquiDAOHookAbi } from "../../lib/contracts/liquidao/LiquiDAOHookAbi";
+import { Hex, Log, parseEventLogs } from "viem";
+
+function getPoolData(logs: Log<bigint, number, false>[] | undefined) {
+  if (logs === undefined) return undefined;
+
+  const creationEvents = parseEventLogs({
+    abi: LiquiDAOHookAbi,
+    logs: logs,
+  }).filter((log) => log.eventName === "VerificationParamsSetup");
+
+  if (creationEvents.length !== 1)
+    throw new Error("Pool creation event not found or found more than one");
+
+  return creationEvents[0].args;
+}
 
 const useCreateLiquiDAOPool = (): {
-  createPool: (
-    args: {
-      daoTokenAddress: `0x${string}`;
-      liquidityTokenAddress: `0x${string}`;
-      fee: number;
-      initialTickSpacing: number;
-      merkleRoot: Hex;
-      owner: `0x${string}`;
-    },
-    cb: React.Dispatch<React.SetStateAction<boolean>>
-  ) => Promise<void>;
+  createPool: (args: {
+    daoTokenAddress: `0x${string}`;
+    liquidityTokenAddress: `0x${string}`;
+    fee: number;
+    initialTickSpacing: number;
+    merkleRoot: Hex;
+    owner: `0x${string}`;
+  }) => Promise<void>;
   status: "pending" | "success" | "idle" | "error";
+  poolData:
+    | {
+        poolId: Hex;
+        merkleRoot: Hex;
+        owner: `0x${string}`;
+      }
+    | undefined;
 } => {
   const [status, setStatus] = useState<
     "pending" | "success" | "idle" | "error"
@@ -24,12 +42,19 @@ const useCreateLiquiDAOPool = (): {
 
   const { writeContractAsync, data, isPending } = useWriteContract();
 
-  const { isLoading: isWaiting, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({
-      hash: data,
-    });
+  const {
+    isLoading: isWaiting,
+    isSuccess: isConfirmed,
+    isError,
+    data: txData,
+  } = useWaitForTransactionReceipt({
+    hash: data,
+  });
 
   useEffect(() => {
+    if (isError) {
+      setStatus("error");
+    }
     if (isPending || isWaiting) {
       setStatus("pending");
     } else if (isConfirmed) {
@@ -61,7 +86,7 @@ const useCreateLiquiDAOPool = (): {
 
       console.log("args", _args);
 
-      await writeContractAsync({
+      const tx = await writeContractAsync({
         address: GATED_POOL_HOOK_ADDRESS,
         abi: LiquiDAOHookAbi,
         functionName: "initializeLiquiDAOPool",
@@ -73,7 +98,9 @@ const useCreateLiquiDAOPool = (): {
     }
   };
 
-  return { createPool, status };
+  const poolData = getPoolData(txData?.logs);
+
+  return { createPool, status, poolData };
 };
 
 export default useCreateLiquiDAOPool;

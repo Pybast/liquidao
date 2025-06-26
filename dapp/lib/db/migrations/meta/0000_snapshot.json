@@ -1,5 +1,5 @@
 {
-  "id": "e00ebc63-bbab-4b7a-a5e7-d19d63f4a126",
+  "id": "d59bcc2f-e901-43a1-9331-fbf6bbffcb8c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -20,15 +20,63 @@
           "primaryKey": false,
           "notNull": true
         },
+        "pool_id": {
+          "name": "pool_id",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pool_owner": {
+          "name": "pool_owner",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
         "dao_token_address": {
           "name": "dao_token_address",
           "type": "varchar(42)",
           "primaryKey": false,
           "notNull": true
         },
+        "dao_token_name": {
+          "name": "dao_token_name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dao_token_symbol": {
+          "name": "dao_token_symbol",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dao_token_decimals": {
+          "name": "dao_token_decimals",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "liquidity_token_address": {
           "name": "liquidity_token_address",
           "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "liquidity_token_name": {
+          "name": "liquidity_token_name",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "liquidity_token_symbol": {
+          "name": "liquidity_token_symbol",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "liquidity_token_decimals": {
+          "name": "liquidity_token_decimals",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },

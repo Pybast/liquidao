@@ -50,7 +50,7 @@ deploy: ## Deploy contract(s) to the specified network
 verify:
 	@forge verify-contract \
 		--rpc-url $(RPC_URL) \
-		"0x420A8B620D23c2990f797Bbf8E4da06EDE468080,0x975EBCfB9DF15A074E3d3600D418E46fB5C3629C" \
+		"0x508582654e9f47CB1ED7E1D07E03baA74Ef38080,0x975EBCfB9DF15A074E3d3600D418E46fB5C3629C" \
 		./src/LiquiDAOHook.sol:LiquiDAOHook \
 		--constructor-args $(POOL_MANAGER_ADDRESS) \
 		--verifier blockscout \

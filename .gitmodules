@@ -13,3 +13,6 @@
 [submodule "contracts/lib/openzeppelin"]
 	path = contracts/lib/openzeppelin
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git
+[submodule "contracts/lib/v4-router"]
+	path = contracts/lib/v4-router
+	url = https://github.com/z0r0z/v4-router

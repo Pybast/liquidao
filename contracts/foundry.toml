@@ -9,5 +9,7 @@ evm_version = "cancun"
 bytecode_hash = "none"
 cbor_metadata = false
 
+[rpc_endpoints]
+sepolia = "${RPC_URL}"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

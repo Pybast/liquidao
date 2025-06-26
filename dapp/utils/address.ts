@@ -13,24 +13,27 @@ export function formatAddress(
     uppercase?: boolean;
   } = {}
 ): string {
-  if (!address) return '';
-  
+  if (!address) return "";
+
   const {
-    startChars = 6,
+    startChars = 4,
     endChars = 4,
-    separator = '...',
-    uppercase = false
+    separator = "...",
+    uppercase = false,
   } = options;
 
   // Remove '0x' prefix if present
-  const cleanAddress = address.startsWith('0x') ? address.slice(2) : address;
-  
+  const cleanAddress = address.startsWith("0x") ? address.slice(2) : address;
+
   // Format the address
-  const formatted = `${cleanAddress.slice(0, startChars)}${separator}${cleanAddress.slice(-endChars)}`;
-  
+  const formatted = `${cleanAddress.slice(
+    0,
+    startChars
+  )}${separator}${cleanAddress.slice(-endChars)}`;
+
   // Add back '0x' prefix
   const withPrefix = `0x${formatted}`;
-  
+
   return uppercase ? withPrefix.toUpperCase() : withPrefix;
 }
 
@@ -53,6 +56,6 @@ export function formatAddressOrEns(
   address: string | undefined,
   ensName?: string | null
 ): string {
-  if (!address) return '';
+  if (!address) return "";
   return ensName || formatAddress(address);
-} 
+}

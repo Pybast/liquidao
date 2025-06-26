@@ -11,10 +11,22 @@ import {
 export const daoLiquidityPoolSchema = pgTable("dao_liquidity_pool", {
   id: serial("id").primaryKey(),
   daoName: varchar("dao_name", { length: 256 }).notNull(),
+  poolId: varchar("pool_id", { length: 256 }).notNull(),
+  poolOwner: varchar("pool_owner", { length: 42 }).notNull(), // Ethereum address format
   daoTokenAddress: varchar("dao_token_address", { length: 42 }).notNull(), // Ethereum address format
+  daoTokenName: varchar("dao_token_name", { length: 256 }).notNull(),
+  daoTokenSymbol: varchar("dao_token_symbol", { length: 256 }).notNull(),
+  daoTokenDecimals: integer("dao_token_decimals").notNull(),
   liquidityTokenAddress: varchar("liquidity_token_address", {
     length: 42,
   }).notNull(), // Ethereum address format
+  liquidityTokenName: varchar("liquidity_token_name", {
+    length: 256,
+  }).notNull(),
+  liquidityTokenSymbol: varchar("liquidity_token_symbol", {
+    length: 256,
+  }).notNull(),
+  liquidityTokenDecimals: integer("liquidity_token_decimals").notNull(),
   tickSpacing: integer("tick_spacing").notNull(),
   lpFee: integer("lp_fee").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

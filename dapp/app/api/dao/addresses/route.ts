@@ -4,13 +4,23 @@ import {
   daoLiquidityPoolSchema,
   eligibleAddressesSchema,
 } from "@/lib/db/schema";
-import { eq, or } from "drizzle-orm";
+import { eq, or, inArray } from "drizzle-orm";
+import { isAddress } from "viem";
+import { GetDaoAddressesResponse } from "@/lib/types/api";
 
 interface AddressListRequest {
   daoName: string;
-  daoTokenAddress: string;
+  poolId: string;
+  poolOwner: string;
   eligibleAddresses: string[];
+  daoTokenAddress: string;
+  daoTokenName: string;
+  daoTokenSymbol: string;
+  daoTokenDecimals: number;
   liquidityTokenAddress: string;
+  liquidityTokenName: string;
+  liquidityTokenSymbol: string;
+  liquidityTokenDecimals: number;
   tickSpacing: number;
   lpFee: number;
 }
@@ -21,12 +31,20 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (
+      !body.poolId ||
       !body.daoName ||
-      !body.daoTokenAddress ||
       !body.eligibleAddresses ||
-      !body.liquidityTokenAddress ||
       body.lpFee === undefined ||
-      body.tickSpacing === undefined
+      body.tickSpacing === undefined ||
+      !body.poolOwner ||
+      !body.daoTokenAddress ||
+      !body.daoTokenName ||
+      !body.daoTokenSymbol ||
+      !body.daoTokenDecimals ||
+      !body.liquidityTokenAddress ||
+      !body.liquidityTokenName ||
+      !body.liquidityTokenSymbol ||
+      !body.liquidityTokenDecimals
     ) {
       return NextResponse.json(
         {
@@ -63,9 +81,17 @@ export async function POST(request: NextRequest) {
     const [daoResult] = await db
       .insert(daoLiquidityPoolSchema)
       .values({
+        poolId: body.poolId,
         daoName: body.daoName,
+        poolOwner: body.poolOwner.toLowerCase(),
         daoTokenAddress: body.daoTokenAddress.toLowerCase(),
+        daoTokenName: body.daoTokenName,
+        daoTokenSymbol: body.daoTokenSymbol,
+        daoTokenDecimals: body.daoTokenDecimals,
         liquidityTokenAddress: body.liquidityTokenAddress.toLowerCase(),
+        liquidityTokenName: body.liquidityTokenName,
+        liquidityTokenSymbol: body.liquidityTokenSymbol,
+        liquidityTokenDecimals: body.liquidityTokenDecimals,
         tickSpacing: body.tickSpacing,
         lpFee: body.lpFee,
       })
@@ -98,38 +124,69 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest
+): Promise<NextResponse<GetDaoAddressesResponse | { error: string }>> {
   try {
     const { searchParams } = new URL(request.url);
     const daoName = searchParams.get("daoName");
     const daoTokenAddress = searchParams.get("daoTokenAddress");
+    const eligibleAddress = searchParams.get("eligibleAddress");
 
-    if (!daoName && !daoTokenAddress) {
-      return NextResponse.json(
-        {
-          error:
-            "Please provide either daoName or daoTokenAddress as query parameter",
-        },
-        { status: 400 }
-      );
-    }
+    let daoRecords;
 
-    // Build query conditions
-    const conditions = [];
-    if (daoName) {
-      conditions.push(eq(daoLiquidityPoolSchema.daoName, daoName));
-    }
-    if (daoTokenAddress) {
-      conditions.push(
-        eq(daoLiquidityPoolSchema.daoTokenAddress, daoTokenAddress)
-      );
-    }
+    if (eligibleAddress) {
+      // Validate address format for eligibleAddress
+      if (!isAddress(eligibleAddress)) {
+        return NextResponse.json(
+          { error: "Invalid eligibleAddress format" },
+          { status: 400 }
+        );
+      }
 
-    // Fetch DAO records
-    const daoRecords = await db
-      .select()
-      .from(daoLiquidityPoolSchema)
-      .where(or(...conditions));
+      // Fetch DAOs that have the specified eligible address
+      const eligibleAddressRecords = await db
+        .select()
+        .from(eligibleAddressesSchema)
+        .where(
+          eq(eligibleAddressesSchema.address, eligibleAddress.toLowerCase())
+        );
+
+      if (eligibleAddressRecords.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: "No DAOs found with the specified eligible address",
+          data: [],
+        });
+      }
+
+      const daoIds = eligibleAddressRecords.map((record) => record.daoId);
+
+      daoRecords = await db
+        .select()
+        .from(daoLiquidityPoolSchema)
+        .where(inArray(daoLiquidityPoolSchema.id, daoIds));
+    } else {
+      // Build query conditions for daoName and daoTokenAddress
+      const conditions = [];
+      if (daoName) {
+        conditions.push(eq(daoLiquidityPoolSchema.daoName, daoName));
+      }
+      if (daoTokenAddress) {
+        conditions.push(
+          eq(
+            daoLiquidityPoolSchema.daoTokenAddress,
+            daoTokenAddress.toLowerCase()
+          )
+        );
+      }
+
+      // Fetch DAO records
+      daoRecords = await db
+        .select()
+        .from(daoLiquidityPoolSchema)
+        .where(or(...conditions));
+    }
 
     // Fetch eligible addresses for each DAO
     const transformedData = await Promise.all(
@@ -146,11 +203,13 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({
+    const response: GetDaoAddressesResponse = {
       success: true,
       message: "Address list retrieved successfully",
       data: transformedData,
-    });
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Error retrieving address list:", error);
     return NextResponse.json(
