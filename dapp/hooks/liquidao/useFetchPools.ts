@@ -4,11 +4,7 @@ import { GATED_POOL_HOOK_ADDRESS } from "./helpers";
 import { sepolia } from "viem/chains";
 import { DAO_MAPPING, Pool } from "../../lib/daoMapping";
 import { RPC_URL } from "@/environment";
-
-// ABI for the event we want to listen to
-const eventAbi = parseAbiItem(
-  "event VerificationParamsSetup(bytes32 poolId, bytes32 domainHash)"
-);
+import { LiquiDAOHookAbi } from "./abis/LiquiDAOHookAbi";
 
 /**
  * Custom hook to fetch all LiquiDAO pools from the GatedPoolHook contract
@@ -30,6 +26,14 @@ export function useFetchPools() {
           transport: http(RPC_URL),
         });
 
+        const eventAbi = LiquiDAOHookAbi.find(
+          (el) => el.type === "event" && el.name === "VerificationParamsSetup"
+        );
+
+        if (!eventAbi) {
+          throw new Error("Event ABI not found");
+        }
+
         // Fetch all VerificationParamsSetup events
         const logs = await client.getLogs({
           address: GATED_POOL_HOOK_ADDRESS,
@@ -46,14 +50,17 @@ export function useFetchPools() {
             topics: log.topics,
           });
 
-          const dao = DAO_MAPPING.find(
-            (d) =>
-              d.tokenAddress.toLowerCase() ==
-              decodedLog.args.domainHash.toLowerCase() // TODO update to new event
-          )!;
+          // const dao = DAO_MAPPING.find(
+          //   (d) =>
+          //     d.tokenAddress.toLowerCase() ==
+          //     decodedLog.args..toLowerCase()
+          // )!;
 
           return {
-            ...dao,
+            name: "Unkown DAO",
+            iconURL: "",
+            token: "Unknown Token",
+            tokenAddress: "0xsomeaddress",
             poolId: decodedLog.args.poolId as string,
           } satisfies Pool;
         });

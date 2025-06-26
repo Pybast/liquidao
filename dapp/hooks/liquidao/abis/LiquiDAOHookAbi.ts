@@ -1,4 +1,4 @@
-export const GatedPoolHookAbi = [
+export const LiquiDAOHookAbi = [
   {
     type: "constructor",
     inputs: [
@@ -7,26 +7,16 @@ export const GatedPoolHookAbi = [
         type: "address",
         internalType: "contract IPoolManager",
       },
-      {
-        name: "_emailVerifier",
-        type: "address",
-        internalType: "address",
-      },
+      { name: "_owner", type: "address", internalType: "address" },
     ],
     stateMutability: "nonpayable",
   },
   {
     type: "function",
-    name: "EMAIL_VERIFIER",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "contract IEmailVerifier",
-      },
-    ],
-    stateMutability: "view",
+    name: "addRouter",
+    inputs: [{ name: "_router", type: "address", internalType: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -60,7 +50,7 @@ export const GatedPoolHookAbi = [
       {
         name: "params",
         type: "tuple",
-        internalType: "struct IPoolManager.ModifyLiquidityParams",
+        internalType: "struct ModifyLiquidityParams",
         components: [
           { name: "tickLower", type: "int24", internalType: "int24" },
           { name: "tickUpper", type: "int24", internalType: "int24" },
@@ -193,7 +183,7 @@ export const GatedPoolHookAbi = [
       {
         name: "params",
         type: "tuple",
-        internalType: "struct IPoolManager.ModifyLiquidityParams",
+        internalType: "struct ModifyLiquidityParams",
         components: [
           { name: "tickLower", type: "int24", internalType: "int24" },
           { name: "tickUpper", type: "int24", internalType: "int24" },
@@ -251,7 +241,7 @@ export const GatedPoolHookAbi = [
       {
         name: "params",
         type: "tuple",
-        internalType: "struct IPoolManager.SwapParams",
+        internalType: "struct SwapParams",
         components: [
           { name: "zeroForOne", type: "bool", internalType: "bool" },
           {
@@ -307,7 +297,7 @@ export const GatedPoolHookAbi = [
       {
         name: "params",
         type: "tuple",
-        internalType: "struct IPoolManager.ModifyLiquidityParams",
+        internalType: "struct ModifyLiquidityParams",
         components: [
           { name: "tickLower", type: "int24", internalType: "int24" },
           { name: "tickUpper", type: "int24", internalType: "int24" },
@@ -426,7 +416,7 @@ export const GatedPoolHookAbi = [
       {
         name: "params",
         type: "tuple",
-        internalType: "struct IPoolManager.ModifyLiquidityParams",
+        internalType: "struct ModifyLiquidityParams",
         components: [
           { name: "tickLower", type: "int24", internalType: "int24" },
           { name: "tickUpper", type: "int24", internalType: "int24" },
@@ -475,7 +465,7 @@ export const GatedPoolHookAbi = [
       {
         name: "params",
         type: "tuple",
-        internalType: "struct IPoolManager.SwapParams",
+        internalType: "struct SwapParams",
         components: [
           { name: "zeroForOne", type: "bool", internalType: "bool" },
           {
@@ -570,7 +560,7 @@ export const GatedPoolHookAbi = [
   },
   {
     type: "function",
-    name: "initializeGatedPool",
+    name: "initializeLiquiDAOPool",
     inputs: [
       {
         name: "key",
@@ -601,16 +591,27 @@ export const GatedPoolHookAbi = [
         type: "uint160",
         internalType: "uint160",
       },
-      { name: "domainHash", type: "bytes32", internalType: "bytes32" },
+      { name: "merkleRoot", type: "bytes32", internalType: "bytes32" },
+      { name: "owner", type: "address", internalType: "address" },
     ],
     outputs: [{ name: "tick", type: "int24", internalType: "int24" }],
     stateMutability: "nonpayable",
   },
   {
     type: "function",
-    name: "poolDomainHash",
+    name: "liquiDAOPool",
     inputs: [{ name: "", type: "bytes32", internalType: "PoolId" }],
-    outputs: [{ name: "", type: "bytes32", internalType: "bytes32" }],
+    outputs: [
+      { name: "merkleRoot", type: "bytes32", internalType: "bytes32" },
+      { name: "owner", type: "address", internalType: "address" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "owner",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
     stateMutability: "view",
   },
   {
@@ -627,26 +628,124 @@ export const GatedPoolHookAbi = [
     stateMutability: "view",
   },
   {
+    type: "function",
+    name: "removeRouter",
+    inputs: [{ name: "_router", type: "address", internalType: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "renounceOwnership",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "transferOwnership",
+    inputs: [{ name: "newOwner", type: "address", internalType: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "updateLiquiDAOPool",
+    inputs: [
+      {
+        name: "key",
+        type: "tuple",
+        internalType: "struct PoolKey",
+        components: [
+          {
+            name: "currency0",
+            type: "address",
+            internalType: "Currency",
+          },
+          {
+            name: "currency1",
+            type: "address",
+            internalType: "Currency",
+          },
+          { name: "fee", type: "uint24", internalType: "uint24" },
+          { name: "tickSpacing", type: "int24", internalType: "int24" },
+          {
+            name: "hooks",
+            type: "address",
+            internalType: "contract IHooks",
+          },
+        ],
+      },
+      { name: "merkleRoot", type: "bytes32", internalType: "bytes32" },
+      { name: "owner", type: "address", internalType: "address" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "verifiedRouters",
+    inputs: [{ name: "swapRouter", type: "address", internalType: "address" }],
+    outputs: [{ name: "approved", type: "bool", internalType: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "event",
+    name: "OwnershipTransferred",
+    inputs: [
+      {
+        name: "previousOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "newOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
     type: "event",
     name: "VerificationParamsSetup",
     inputs: [
       {
         name: "poolId",
         type: "bytes32",
-        indexed: false,
+        indexed: true,
         internalType: "PoolId",
       },
       {
-        name: "domainHash",
+        name: "merkleRoot",
         type: "bytes32",
-        indexed: false,
+        indexed: true,
         internalType: "bytes32",
+      },
+      {
+        name: "owner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
       },
     ],
     anonymous: false,
   },
   { type: "error", name: "HookNotImplemented", inputs: [] },
   { type: "error", name: "NotPoolManager", inputs: [] },
+  {
+    type: "error",
+    name: "OwnableInvalidOwner",
+    inputs: [{ name: "owner", type: "address", internalType: "address" }],
+  },
+  {
+    type: "error",
+    name: "OwnableUnauthorizedAccount",
+    inputs: [{ name: "account", type: "address", internalType: "address" }],
+  },
+  { type: "error", name: "RouterUnauthorized", inputs: [] },
   { type: "error", name: "Unauthorized", inputs: [] },
   { type: "error", name: "WRONG_HOOK", inputs: [] },
 ] as const;

@@ -39,31 +39,20 @@ export default function PoolsPage() {
 
                   <div className="flex justify-between">
                     <span className="flex items-center">
-                      <Zap className="w-4 h-4 mr-2 text-accent" />
+                      <Zap className="w-4 h-4 mr-2 text-success" />
                       24h Volume
-                    </span>
-                    <span className="font-semibold">Soon ™️</span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="flex items-center">
-                      <Users className="w-4 h-4 mr-2 text-secondary" />
-                      Members
-                    </span>
-                    <span className="font-semibold">Soon ™️</span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="flex items-center">
-                      <Lock className="w-4 h-4 mr-2 text-success" />
-                      APY
                     </span>
                     <span className="font-semibold text-success">Soon ™️</span>
                   </div>
                 </div>
 
                 <div className="card-actions justify-end mt-4">
-                  <div className="badge badge-outline">Soon ™️</div>
+                  <a
+                    href={`https://app.uniswap.org/explore/pools/ethereum_sepolia/${pool.poolId}`}>
+                    <button className="btn btn-secondary btn-sm">
+                      Provide Liquidity
+                    </button>
+                  </a>
                   <button className="btn btn-primary btn-sm">View Pool</button>
                 </div>
               </div>

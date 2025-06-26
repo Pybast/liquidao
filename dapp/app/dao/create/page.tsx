@@ -13,15 +13,18 @@ import {
   Users,
   Settings,
 } from "lucide-react";
-import useCreateGatedPool from "@/hooks/liquidao/useCreateGatedPool";
-import { keccak256, stringToBytes } from "viem";
+import useCreateLiquiDAOPool from "@/hooks/liquidao/useCreateLiquiDAOPool";
+import { Address } from "viem";
 import Link from "next/link";
+import { useAccount } from "wagmi";
+import { generateMerkleTree } from "@/lib/merkle";
+import { USDC_TOKEN_ADDRESS } from "@/environment";
 
 interface PoolCreationParams {
   daoName: string;
   daoTokenAddress: `0x${string}`;
   liquidityTokenAddress: `0x${string}`;
-  eligibleAddresses: string[];
+  eligibleAddresses: Address[];
   tickSpacing: number;
   lpFee: number;
 }
@@ -30,8 +33,7 @@ export default function CreateDAOPage() {
   const [formData, setFormData] = useState<PoolCreationParams>({
     daoName: "",
     daoTokenAddress: "" as `0x${string}`,
-    liquidityTokenAddress:
-      "0xA0b86a33E6411e70e5b9Ec8c1DB5F4a1e8c6f1e9" as `0x${string}`, // USDC address
+    liquidityTokenAddress: USDC_TOKEN_ADDRESS as Address,
     eligibleAddresses: [],
     tickSpacing: 1,
     lpFee: 0,
@@ -39,23 +41,24 @@ export default function CreateDAOPage() {
   const [addressListInput, setAddressListInput] = useState("");
   const [submitting, setIsSubmitting] = useState(false);
   const [success, setIsSuccess] = useState(false);
-  const { createPool, status } = useCreateGatedPool(
-    formData.daoTokenAddress,
-    0,
-    100,
-    keccak256(stringToBytes(formData.daoName))
-  );
+  const { address } = useAccount();
+  const { createPool, status } = useCreateLiquiDAOPool();
   const isSubmitting = submitting || status === "pending";
   const isSuccess = success || status === "success";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log("formData", formData);
+
     // Validate required fields
     if (
       !formData.daoName ||
       !formData.daoTokenAddress ||
-      formData.eligibleAddresses.length === 0
+      formData.eligibleAddresses.length === 0 ||
+      !formData.liquidityTokenAddress ||
+      formData.tickSpacing === undefined ||
+      formData.lpFee === undefined
     ) {
       alert("Please fill in all required fields");
       return;
@@ -63,9 +66,26 @@ export default function CreateDAOPage() {
 
     setIsSubmitting(true);
 
+    if (!address) {
+      alert("Please connect your wallet");
+      return;
+    }
+
+    const { merkleRoot } = generateMerkleTree(formData.eligibleAddresses);
+
     try {
       // Create the pool first
-      await createPool(setIsSuccess);
+      await createPool(
+        {
+          daoTokenAddress: formData.daoTokenAddress,
+          liquidityTokenAddress: formData.liquidityTokenAddress,
+          fee: formData.lpFee,
+          initialTickSpacing: formData.tickSpacing,
+          merkleRoot: merkleRoot,
+          owner: address,
+        },
+        setIsSuccess
+      );
 
       // Send address list to backend
       const response = await fetch("/api/dao/addresses", {
@@ -77,7 +97,9 @@ export default function CreateDAOPage() {
           daoName: formData.daoName,
           daoTokenAddress: formData.daoTokenAddress,
           eligibleAddresses: formData.eligibleAddresses,
-          // poolAddress: poolAddress, // You can add this when you have the pool address
+          liquidityTokenAddress: formData.liquidityTokenAddress,
+          tickSpacing: formData.tickSpacing,
+          lpFee: formData.lpFee,
         }),
       });
 
@@ -118,7 +140,7 @@ export default function CreateDAOPage() {
       .filter((addr) => addr.length > 0);
     setFormData((prev) => ({
       ...prev,
-      eligibleAddresses: addresses,
+      eligibleAddresses: addresses as Address[],
     }));
   };
 

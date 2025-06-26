@@ -10,9 +10,9 @@ interface AddressListRequest {
   daoName: string;
   daoTokenAddress: string;
   eligibleAddresses: string[];
-  liquidityTokenAddress?: string;
-  tickSpacing?: number;
-  lpFee?: number;
+  liquidityTokenAddress: string;
+  tickSpacing: number;
+  lpFee: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -20,11 +20,17 @@ export async function POST(request: NextRequest) {
     const body: AddressListRequest = await request.json();
 
     // Validate required fields
-    if (!body.daoName || !body.daoTokenAddress || !body.eligibleAddresses) {
+    if (
+      !body.daoName ||
+      !body.daoTokenAddress ||
+      !body.eligibleAddresses ||
+      !body.liquidityTokenAddress ||
+      body.lpFee === undefined ||
+      body.tickSpacing === undefined
+    ) {
       return NextResponse.json(
         {
-          error:
-            "Missing required fields: daoName, daoTokenAddress, or eligibleAddresses",
+          error: "400 Bad Request",
         },
         { status: 400 }
       );
@@ -58,19 +64,17 @@ export async function POST(request: NextRequest) {
       .insert(daoLiquidityPoolSchema)
       .values({
         daoName: body.daoName,
-        daoTokenAddress: body.daoTokenAddress,
-        liquidityTokenAddress:
-          body.liquidityTokenAddress ||
-          "0xA0b86a33E6411e70e5b9Ec8c1DB5F4a1e8c6f1e9", // Default USDC
-        tickSpacing: body.tickSpacing || 1,
-        lpFee: body.lpFee || 0,
+        daoTokenAddress: body.daoTokenAddress.toLowerCase(),
+        liquidityTokenAddress: body.liquidityTokenAddress.toLowerCase(),
+        tickSpacing: body.tickSpacing,
+        lpFee: body.lpFee,
       })
       .returning();
 
     // Insert eligible addresses
     const eligibleAddressesData = body.eligibleAddresses.map((address) => ({
       daoId: daoResult.id,
-      address,
+      address: address.toLowerCase(),
     }));
 
     await db.insert(eligibleAddressesSchema).values(eligibleAddressesData);
