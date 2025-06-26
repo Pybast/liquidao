@@ -24,7 +24,6 @@ import {DeployPermit2} from "../test/utils/forks/DeployPermit2.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IPositionDescriptor} from "v4-periphery/src/interfaces/IPositionDescriptor.sol";
 import {IWETH9} from "v4-periphery/src/interfaces/external/IWETH9.sol";
-import {EmailVerifier} from "../src/verifier/EmailVerifier.sol";
 import {ModifyLiquidityParams, SwapParams} from "v4-core/src/types/PoolOperation.sol";
 
 /// @notice Forge script for deploying v4 & hooks to **anvil**
@@ -57,8 +56,7 @@ contract LiquiDAOHookScript is Script, DeployPermit2 {
         // Deploy the hook using CREATE2 //
         // ----------------------------- //
         vm.broadcast();
-        EmailVerifier emailVerifier = new EmailVerifier();
-        LiquiDAOHook liquiDAO = new LiquiDAOHook{salt: salt}(manager, address(emailVerifier));
+        LiquiDAOHook liquiDAO = new LiquiDAOHook{salt: salt}(manager);
         require(address(liquiDAO) == hookAddress, "LiquiDAOHookScript: hook address mismatch");
 
         // Additional helpers for interacting with the pool

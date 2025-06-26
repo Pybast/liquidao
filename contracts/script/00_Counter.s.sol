@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import "forge-std/Script.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
-
 import {Constants} from "./base/Constants.sol";
 import {LiquiDAOHook} from "../src/LiquiDAOHook.sol";
 import {HookMiner} from "v4-periphery/src/utils/HookMiner.sol";
@@ -27,7 +26,7 @@ contract LiquiDAOHookScript is Script, Constants {
 
         // Deploy the hook using CREATE2
         vm.broadcast();
-        LiquiDAOHook liquiDAO = new LiquiDAOHook{salt: salt}(IPoolManager(POOLMANAGER), address(EMAIL_VERIFIER));
+        LiquiDAOHook liquiDAO = new LiquiDAOHook{salt: salt}(IPoolManager(POOLMANAGER));
         require(address(liquiDAO) == hookAddress, "LiquiDAOHookScript: hook address mismatch");
     }
 }

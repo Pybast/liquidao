@@ -64,8 +64,8 @@ export default function CreateDAOPage() {
     setIsSubmitting(true);
 
     try {
-      // // Create the pool first
-      // await createPool(setIsSuccess);
+      // Create the pool first
+      await createPool(setIsSuccess);
 
       // Send address list to backend
       const response = await fetch("/api/dao/addresses", {

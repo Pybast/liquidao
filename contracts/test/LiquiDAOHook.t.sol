@@ -33,11 +33,6 @@ contract LiquiDAOHookTest is Test, Fixtures {
     int24 public tickUpper;
 
     function setUp() public {
-        // create zk email verifier
-        // Deploy the hook to an address with the correct flags
-        address verifier = address(uint160(uint256(keccak256("EmailVerifier"))));
-        deployCodeTo("EmailVerifier.sol:EmailVerifier", "", verifier);
-
         // creates the pool manager, utility routers, and test tokens
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
@@ -48,16 +43,18 @@ contract LiquiDAOHookTest is Test, Fixtures {
         address flags = address(
             uint160(Hooks.BEFORE_SWAP_FLAG) ^ (0x4444 << 144) // Namespace the hook to avoid collisions
         );
-        bytes memory constructorArgs = abi.encode(manager, verifier); // Add all the necessary constructor arguments from the hook
+        bytes memory constructorArgs = abi.encode(manager); // Add all the necessary constructor arguments from the hook
         deployCodeTo("LiquiDAOHook.sol:LiquiDAOHook", constructorArgs, flags);
         hook = LiquiDAOHook(flags);
+
+        hook.addRouter(address(swapRouter));
 
         // Create the pool
         key = PoolKey(currency0, currency1, 3000, 60, IHooks(hook));
         poolId = key.toId();
 
         // save verification params in the hook contract
-        hook.initializeLiquiDAOPool(key, SQRT_PRICE_1_1, bytes32(keccak256("somedomain")));
+        hook.initializeLiquiDAOPool(key, SQRT_PRICE_1_1, keccak256(abi.encodePacked(address(this))), address(this));
 
         // Provide full-range liquidity to the pool
         tickLower = TickMath.minUsableTick(key.tickSpacing);
@@ -88,13 +85,20 @@ contract LiquiDAOHookTest is Test, Fixtures {
     function testLiquiDAOHookHooks() public {
         // positions were created in setup()
 
+        (bytes32 merkleRoot, address owner) = hook.liquiDAOPool(poolId);
+
         // verify that the pool domain hash is set
-        assertEq(hook.poolDomainHash(poolId), bytes32(keccak256("somedomain")));
+        assertEq(merkleRoot, bytes32(keccak256(abi.encodePacked(address(this)))));
+        assertEq(owner, address(this));
+
+        // Create a simple Merkle proof for the sender address
+        // For testing purposes, we'll create a single-element proof
+        bytes32[] memory proof = new bytes32[](0); // Empty proof for single element
+        bytes memory proofCalldata = abi.encode(proof);
 
         // Perform a test swap //
         bool zeroForOne = true;
         int256 amountSpecified = -1e18; // negative number indicates exact input swap!
-        bytes memory proofCalldata;
 
         BalanceDelta swapDelta = swap(key, zeroForOne, amountSpecified, proofCalldata);
         // ------------------- //
@@ -102,6 +106,5 @@ contract LiquiDAOHookTest is Test, Fixtures {
         assertEq(int256(swapDelta.amount0()), amountSpecified);
 
         // assertEq(hook.beforeSwapCount(poolId), 1);
-        // assertEq(hook.afterSwapCount(poolId), 1);
     }
 }

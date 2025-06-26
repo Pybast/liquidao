@@ -6,7 +6,6 @@ import {PositionManager} from "v4-periphery/src/PositionManager.sol";
 import {IAllowanceTransfer} from "permit2/src/interfaces/IAllowanceTransfer.sol";
 import {PoolManagerAddresses} from "./PoolManagerAddresses.sol";
 import {PositionManagerAddresses} from "./PositionManagerAddresses.sol";
-import {IEmailVerifier} from "../../src/interfaces/IEmailVerifier.sol";
 
 /// @notice Shared constants used in scripts
 contract Constants {
@@ -14,7 +13,6 @@ contract Constants {
     using PositionManagerAddresses for uint256;
 
     IPoolManager immutable POOLMANAGER;
-    IEmailVerifier constant EMAIL_VERIFIER = IEmailVerifier(0x975EBCfB9DF15A074E3d3600D418E46fB5C3629C);
     PositionManager immutable posm;
 
     address constant CREATE2_DEPLOYER = address(0x4e59b44847b379578588920cA78FbF26c0B4956C);

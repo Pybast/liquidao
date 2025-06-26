@@ -22,18 +22,17 @@ contract DeployScript is Script {
 
         // Deploy PoolManager first
         IPoolManager manager = IPoolManager(vm.envAddress("POOL_MANAGER_ADDRESS"));
-        IPoolManager emailVerifier = IPoolManager(vm.envAddress("EMAIL_VERIFIER"));
 
         // Define the flags needed for the hook
         uint160 flags = uint160(Hooks.BEFORE_SWAP_FLAG);
 
         // Mine a salt that will produce a hook address with the correct flags
-        bytes memory constructorArgs = abi.encode(manager, emailVerifier);
+        bytes memory constructorArgs = abi.encode(manager);
         (address hookAddress, bytes32 salt) =
             HookMiner.find(CREATE2_DEPLOYER, flags, type(LiquiDAOHook).creationCode, constructorArgs);
 
         // Deploy the hook using CREATE2 with the mined salt
-        LiquiDAOHook hook = new LiquiDAOHook{salt: salt}(manager, address(emailVerifier));
+        LiquiDAOHook hook = new LiquiDAOHook{salt: salt}(manager);
         require(address(hook) == hookAddress, "Hook deployed to wrong address");
 
         console.log("LiquiDAOHook deployed to:", address(hook));
