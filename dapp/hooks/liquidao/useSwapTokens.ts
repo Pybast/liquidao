@@ -5,6 +5,7 @@ import { v4RouterAbi } from "../../lib/contracts/v4router/v4RouterAbi";
 import { DaoLiquidityPool } from "../../lib/db/schema";
 import { parseUnits, encodeAbiParameters } from "viem";
 import { generateMerkleTree, getMerkleProof } from "@/lib/merkle";
+import { createPoolKey } from "@/utils/v4";
 
 export interface SwapResult {
   status: "pending" | "success" | "idle" | "error";
@@ -73,7 +74,7 @@ export const useSwapTokens = (): {
 
       // Calculate minimum amount out (with 2% slippage tolerance)
       const amountOutMin = parseUnits(
-        (amount * 0.9).toString(),
+        (amount * 0.5).toString(),
         selectedPool.liquidityTokenDecimals
       );
 
@@ -81,13 +82,14 @@ export const useSwapTokens = (): {
       const zeroForOne = true; // swapping from DAO token (currency0) to liquidity token (currency1)
 
       // Construct the PoolKey
-      const poolKey = {
-        currency0: selectedPool.daoTokenAddress as `0x${string}`,
-        currency1: selectedPool.liquidityTokenAddress as `0x${string}`,
+      const poolKey = createPoolKey({
+        daoTokenAddress: selectedPool.daoTokenAddress as `0x${string}`,
+        liquidityTokenAddress:
+          selectedPool.liquidityTokenAddress as `0x${string}`,
         fee: selectedPool.lpFee,
         tickSpacing: selectedPool.tickSpacing,
         hooks: GATED_POOL_HOOK_ADDRESS,
-      };
+      });
 
       // Set deadline to 20 minutes from now
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
@@ -115,7 +117,8 @@ export const useSwapTokens = (): {
               );
 
               // Generate merkle tree from eligible addresses
-              const { merkleTree } = generateMerkleTree(eligibleAddresses);
+              const { merkleTree, merkleRoot } =
+                generateMerkleTree(eligibleAddresses);
 
               // Generate proof for the current user
               const proof = await getMerkleProof(merkleTree, userAddress);
@@ -135,11 +138,6 @@ export const useSwapTokens = (): {
         );
         // Continue with empty hookData if proof generation fails
       }
-
-      hookData = encodeAbiParameters(
-        [{ name: "proof", type: "bytes32[]" }],
-        [[] as `0x${string}`[]]
-      ) as `0x${string}`;
 
       const swapArgs = [
         amountIn,

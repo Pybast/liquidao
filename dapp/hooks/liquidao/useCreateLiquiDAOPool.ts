@@ -3,6 +3,7 @@ import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { GATED_POOL_HOOK_ADDRESS } from "./helpers";
 import { LiquiDAOHookAbi } from "../../lib/contracts/liquidao/LiquiDAOHookAbi";
 import { Hex, Log, parseEventLogs } from "viem";
+import { createPoolKey } from "@/utils/v4";
 
 function getPoolData(logs: Log<bigint, number, false>[] | undefined) {
   if (logs === undefined) return undefined;
@@ -72,13 +73,13 @@ const useCreateLiquiDAOPool = (): {
   }) => {
     try {
       const _args = [
-        {
-          currency0: args.daoTokenAddress,
-          currency1: args.liquidityTokenAddress,
+        createPoolKey({
+          daoTokenAddress: args.daoTokenAddress,
+          liquidityTokenAddress: args.liquidityTokenAddress,
           fee: args.fee,
           tickSpacing: args.initialTickSpacing,
           hooks: GATED_POOL_HOOK_ADDRESS,
-        },
+        }),
         BigInt("79228162514264337593543950336"), // TODO find better initial tick from public pool
         args.merkleRoot,
         args.owner,

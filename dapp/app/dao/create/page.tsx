@@ -21,6 +21,8 @@ import { generateMerkleTree } from "@/lib/merkle";
 import { USDC_TOKEN_ADDRESS } from "@/environment";
 import { useTokenInfos } from "@/hooks/getTokenInfos";
 import { GATED_POOL_HOOK_ADDRESS } from "@/hooks/liquidao/helpers";
+import CopyableAddress from "@/components/CopyableAddress";
+import { createPoolKey } from "@/utils/v4";
 
 interface PoolCreationParams {
   daoName: string;
@@ -46,13 +48,13 @@ function computePoolId({
 }) {
   // Compute pool ID by hashing the concatenated pool parameters using viem
   // This mirrors the Solidity keccak256 hashing of the PoolKey struct
-  const poolKey = {
-    currency0: daoTokenAddress,
-    currency1: liquidityTokenAddress,
+  const poolKey = createPoolKey({
+    daoTokenAddress,
+    liquidityTokenAddress,
     fee: lpFee,
     tickSpacing: tickSpacing,
     hooks: hoook,
-  };
+  });
 
   // Use viem's encodePacked to match Solidity abi.encode
   return keccak256(
@@ -96,6 +98,55 @@ export default function CreateDAOPage() {
   const daoTokenInfo = useTokenInfos(formData.daoTokenAddress);
   const liquidityTokenInfo = useTokenInfos(formData.liquidityTokenAddress);
 
+  useEffect(() => {
+    if (status === "success") {
+      savePoolData();
+    }
+  }, [status]);
+
+  const savePoolData = async () => {
+    if (!daoTokenInfo.data || !liquidityTokenInfo.data) return;
+
+    const response = await fetch("/api/dao/addresses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        daoName: formData.daoName,
+        poolId: computePoolId({
+          daoTokenAddress: formData.daoTokenAddress,
+          liquidityTokenAddress: formData.liquidityTokenAddress,
+          lpFee: formData.lpFee,
+          tickSpacing: formData.tickSpacing,
+          hoook: GATED_POOL_HOOK_ADDRESS,
+        }),
+        poolOwner: address,
+        eligibleAddresses: formData.eligibleAddresses,
+        daoTokenAddress: formData.daoTokenAddress,
+        daoTokenName: daoTokenInfo.data.name,
+        daoTokenSymbol: daoTokenInfo.data.symbol,
+        daoTokenDecimals: daoTokenInfo.data.decimals,
+        liquidityTokenAddress: formData.liquidityTokenAddress,
+        liquidityTokenName: liquidityTokenInfo.data.name,
+        liquidityTokenSymbol: liquidityTokenInfo.data.symbol,
+        liquidityTokenDecimals: liquidityTokenInfo.data.decimals,
+        tickSpacing: formData.tickSpacing,
+        lpFee: formData.lpFee,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Failed to save address list:", errorData);
+      // You might want to show an error message to the user here
+      // but still allow the pool creation to be considered successful
+    } else {
+      const result = await response.json();
+      console.log("Address list saved successfully:", result);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -136,46 +187,6 @@ export default function CreateDAOPage() {
         merkleRoot: merkleRoot,
         owner: address,
       });
-
-      // Send address list to backend
-      const response = await fetch("/api/dao/addresses", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          daoName: formData.daoName,
-          poolId: computePoolId({
-            daoTokenAddress: formData.daoTokenAddress,
-            liquidityTokenAddress: formData.liquidityTokenAddress,
-            lpFee: formData.lpFee,
-            tickSpacing: formData.tickSpacing,
-            hoook: GATED_POOL_HOOK_ADDRESS,
-          }),
-          poolOwner: address,
-          eligibleAddresses: formData.eligibleAddresses,
-          daoTokenAddress: formData.daoTokenAddress,
-          daoTokenName: daoTokenInfo.data.name,
-          daoTokenSymbol: daoTokenInfo.data.symbol,
-          daoTokenDecimals: daoTokenInfo.data.decimals,
-          liquidityTokenAddress: formData.liquidityTokenAddress,
-          liquidityTokenName: liquidityTokenInfo.data.name,
-          liquidityTokenSymbol: liquidityTokenInfo.data.symbol,
-          liquidityTokenDecimals: liquidityTokenInfo.data.decimals,
-          tickSpacing: formData.tickSpacing,
-          lpFee: formData.lpFee,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Failed to save address list:", errorData);
-        // You might want to show an error message to the user here
-        // but still allow the pool creation to be considered successful
-      } else {
-        const result = await response.json();
-        console.log("Address list saved successfully:", result);
-      }
     } catch (error) {
       console.error("Error during pool creation or address saving:", error);
       // Handle error appropriately
@@ -198,10 +209,14 @@ export default function CreateDAOPage() {
     setAddressListInput(value);
     console.log("value", value);
     // Parse addresses from textarea (one per line)
-    const addresses = value
-      .split("\n")
-      .map((addr) => addr.trim())
-      .filter((addr) => addr.length > 0);
+    const addresses = Array.from(
+      new Set(
+        value
+          .split("\n")
+          .map((addr) => addr.trim())
+          .filter((addr) => addr.length > 0)
+      )
+    );
     setFormData((prev) => ({
       ...prev,
       eligibleAddresses: addresses as Address[],
@@ -228,11 +243,17 @@ export default function CreateDAOPage() {
 
                 <div className="stats shadow mb-6">
                   <div className="stat">
-                    <div className="stat-title">Pool Address</div>
+                    <div className="stat-title">Pool ID</div>
                     <div className="stat-value text-sm font-mono">
-                      0x1234...5678
+                      {poolData ? (
+                        <CopyableAddress address={poolData.poolId}>
+                          {poolData.poolId}
+                        </CopyableAddress>
+                      ) : (
+                        "Loading..."
+                      )}
                     </div>
-                    <div className="stat-desc">View on Block Explorer</div>
+                    <div className="stat-desc">Unique pool identifier</div>
                   </div>
                 </div>
 
@@ -244,9 +265,32 @@ export default function CreateDAOPage() {
                       <li>
                         • {formData.eligibleAddresses.length} eligible addresses
                       </li>
-                      <li>• 0% LP fee</li>
+                      <li>• {formData.lpFee}% LP fee</li>
                       <li>• Tick spacing: {formData.tickSpacing}</li>
-                      <li>• Token pair: {formData.daoName}/USDC</li>
+                      <li>
+                        • Token pair: {daoTokenInfo.data?.symbol || "DAO Token"}
+                        /USDC
+                      </li>
+                      {poolData && (
+                        <>
+                          <li>
+                            • Merkle root:{" "}
+                            <CopyableAddress
+                              address={poolData.merkleRoot}
+                              className="text-xs">
+                              {poolData.merkleRoot}
+                            </CopyableAddress>
+                          </li>
+                          <li>
+                            • Pool owner:{" "}
+                            <CopyableAddress
+                              address={poolData.owner}
+                              className="text-xs">
+                              {poolData.owner}
+                            </CopyableAddress>
+                          </li>
+                        </>
+                      )}
                     </ul>
                   </div>
                 </div>

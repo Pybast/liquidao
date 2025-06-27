@@ -37,7 +37,7 @@ const SuccessView = ({
             <div className="stats shadow mb-6">
               <div className="stat">
                 <div className="stat-title">Transaction Hash</div>
-                <div className="stat-value text-sm font-mono">
+                <div className="stat-value text-sm font-mono flex justify-center">
                   {txHash ? (
                     <CopyableAddress
                       address={txHash}

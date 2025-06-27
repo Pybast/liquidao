@@ -4,6 +4,7 @@ import { DaoLiquidityPool } from "../../lib/db/schema";
 import { StateViewAbi } from "../../lib/contracts/v4router/StateViewAbi";
 import { GATED_POOL_HOOK_ADDRESS } from "./helpers";
 import { keccak256, encodeAbiParameters } from "viem";
+import { createPoolKey } from "@/utils/v4";
 
 // Utility function to compute price from tick
 const computePriceFromTick = (tick: number): number => {
@@ -12,13 +13,13 @@ const computePriceFromTick = (tick: number): number => {
 
 // Utility function to compute pool ID from pool key
 const computePoolId = (pool: DaoLiquidityPool): `0x${string}` => {
-  const poolKey = {
-    currency0: pool.daoTokenAddress as `0x${string}`,
-    currency1: pool.liquidityTokenAddress as `0x${string}`,
+  const poolKey = createPoolKey({
+    daoTokenAddress: pool.daoTokenAddress as `0x${string}`,
+    liquidityTokenAddress: pool.liquidityTokenAddress as `0x${string}`,
     fee: pool.lpFee,
     tickSpacing: pool.tickSpacing,
     hooks: GATED_POOL_HOOK_ADDRESS,
-  };
+  });
 
   return keccak256(
     encodeAbiParameters(
