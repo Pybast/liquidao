@@ -8,7 +8,7 @@ export default function Navbar() {
       <div className="navbar-start">
         <Link href="/" className="btn btn-ghost normal-case text-xl">
           <img
-            src="/logos/gated-pool-logo.jpeg"
+            src="/logos/liquidao_sq_256.png"
             alt="Logo"
             className="w-8 h-8 rounded-full mr-1"
           />
