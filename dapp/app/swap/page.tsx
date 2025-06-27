@@ -5,40 +5,72 @@ import Navbar from "@/components/navbar";
 import { CheckCircle, Lock } from "lucide-react";
 import { SwapForm } from "./components/SwapForm";
 import { useEligibilityCheck } from "@/hooks/useEligibilityCheck";
+import { getBlockExplorerTxLink } from "@/utils/networks";
+import { useAccount } from "wagmi";
+import CopyableAddress from "@/components/CopyableAddress";
 
-const SuccessView = ({ resetSwap }: { resetSwap: () => void }) => (
-  <div className="container mx-auto px-4 py-20">
-    <div className="max-w-2xl mx-auto">
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body text-center">
-          <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
-          <h2 className="card-title text-2xl justify-center mb-4">
-            Swap Authorized!
-          </h2>
-          <p className="mb-6">
-            Your swap for <strong>USDC</strong> has been authorized and
-            executed.
-          </p>
+const SuccessView = ({
+  resetSwap,
+  txHash,
+}: {
+  resetSwap: () => void;
+  txHash?: string;
+}) => {
+  const { chain } = useAccount();
+  const blockExplorerUrl =
+    txHash && chain ? getBlockExplorerTxLink(chain.id, txHash) : "";
 
-          <div className="stats shadow mb-6">
-            <div className="stat">
-              <div className="stat-title">Transaction Hash</div>
-              <div className="stat-value text-sm font-mono">0x1234...5678</div>
-              <div className="stat-desc">View on Etherscan</div>
+  return (
+    <div className="container mx-auto px-4 py-20">
+      <div className="max-w-2xl mx-auto">
+        <div className="card bg-base-200 shadow-xl">
+          <div className="card-body text-center">
+            <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
+            <h2 className="card-title text-2xl justify-center mb-4">
+              Swap Authorized!
+            </h2>
+            <p className="mb-6">
+              Your swap for <strong>USDC</strong> has been authorized and
+              executed.
+            </p>
+
+            <div className="stats shadow mb-6">
+              <div className="stat">
+                <div className="stat-title">Transaction Hash</div>
+                <div className="stat-value text-sm font-mono">
+                  {txHash ? (
+                    <CopyableAddress
+                      address={txHash}
+                      className="text-sm font-mono"
+                      showIcon={true}
+                    />
+                  ) : (
+                    "0x1234...5678"
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="card-actions justify-center">
-            <button className="btn btn-primary" onClick={resetSwap}>
-              Make Another Swap
-            </button>
-            <button className="btn btn-ghost">View Transaction</button>
+            <div className="card-actions justify-center">
+              <button className="btn btn-primary" onClick={resetSwap}>
+                Make Another Swap
+              </button>
+              {blockExplorerUrl && (
+                <a
+                  href={blockExplorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-ghost">
+                  View Transaction
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const NotEligibleView = ({ resetSwap }: { resetSwap: () => void }) => (
   <div className="container mx-auto px-4 py-20">
@@ -130,10 +162,12 @@ function SwapView() {
   const [step, setStep] = useState<
     "loading" | "ready" | "success" | "not-eligible" | "rejected"
   >("loading");
+  const [txHash, setTxHash] = useState<string | undefined>(undefined);
 
   const resetSwap = () => {
     reset();
     setStep("loading");
+    setTxHash(undefined);
   };
 
   useEffect(() => {
@@ -151,7 +185,7 @@ function SwapView() {
   }
 
   if (step === "success") {
-    return <SuccessView resetSwap={resetSwap} />;
+    return <SuccessView resetSwap={resetSwap} txHash={txHash} />;
   }
 
   if (step === "not-eligible") {
@@ -159,7 +193,14 @@ function SwapView() {
   }
   return (
     <SwapForm
-      onComplete={(result: boolean) => setStep(result ? "success" : "rejected")}
+      onComplete={(result: { success: boolean; txHash?: string }) => {
+        if (result.success) {
+          setTxHash(result.txHash);
+          setStep("success");
+        } else {
+          setStep("rejected");
+        }
+      }}
       eligiblePools={eligiblePools}
     />
   );

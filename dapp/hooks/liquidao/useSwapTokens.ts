@@ -4,7 +4,7 @@ import { V4_ROUTER_ADDRESS, GATED_POOL_HOOK_ADDRESS } from "./helpers";
 import { v4RouterAbi } from "../../lib/contracts/v4router/v4RouterAbi";
 import { DaoLiquidityPool } from "../../lib/db/schema";
 import { parseUnits, encodeAbiParameters } from "viem";
-import { generateMerkleTree, getMerkleProof } from "../../lib/merkle";
+import { generateMerkleTree, getMerkleProof } from "@/lib/merkle";
 
 export interface SwapResult {
   status: "pending" | "success" | "idle" | "error";
@@ -73,7 +73,7 @@ export const useSwapTokens = (): {
 
       // Calculate minimum amount out (with 2% slippage tolerance)
       const amountOutMin = parseUnits(
-        (amount * 0.98).toString(),
+        (amount * 0.9).toString(),
         selectedPool.liquidityTokenDecimals
       );
 
@@ -95,46 +95,46 @@ export const useSwapTokens = (): {
       // Generate merkle proof for the user
       let hookData: `0x${string}` = "0x"; // default empty hookData
 
-      // try {
-      //   // Fetch eligible addresses for this pool
-      //   const response = await fetch(
-      //     `/api/dao/addresses?daoTokenAddress=${selectedPool.daoTokenAddress}`
-      //   );
-      //   if (response.ok) {
-      //     const data = await response.json();
-      //     if (data.success && data.data.length > 0) {
-      //       // Find the pool that matches our selectedPool
-      //       const poolData = data.data.find(
-      //         (pool: any) => pool.poolId === selectedPool.poolId
-      //       );
+      try {
+        // Fetch eligible addresses for this pool
+        const response = await fetch(
+          `/api/dao/addresses?daoTokenAddress=${selectedPool.daoTokenAddress}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data.length > 0) {
+            // Find the pool that matches our selectedPool
+            const poolData = data.data.find(
+              (pool: any) => pool.poolId === selectedPool.poolId
+            );
 
-      //       if (poolData && poolData.eligibleAddresses) {
-      //         // Convert string addresses to 0x${string} format
-      //         const eligibleAddresses = poolData.eligibleAddresses.map(
-      //           (addr: string) => addr as `0x${string}`
-      //         );
+            if (poolData && poolData.eligibleAddresses) {
+              // Convert string addresses to 0x${string} format
+              const eligibleAddresses = poolData.eligibleAddresses.map(
+                (addr: string) => addr as `0x${string}`
+              );
 
-      //         // Generate merkle tree from eligible addresses
-      //         const { merkleTree } = generateMerkleTree(eligibleAddresses);
+              // Generate merkle tree from eligible addresses
+              const { merkleTree } = generateMerkleTree(eligibleAddresses);
 
-      //         // Generate proof for the current user
-      //         const proof = await getMerkleProof(merkleTree, userAddress);
+              // Generate proof for the current user
+              const proof = await getMerkleProof(merkleTree, userAddress);
 
-      //         // Encode the proof using abi.encode (equivalent to Solidity's abi.encode(proof))
-      //         hookData = encodeAbiParameters(
-      //           [{ name: "proof", type: "bytes32[]" }],
-      //           [proof as `0x${string}`[]]
-      //         ) as `0x${string}`;
-      //       }
-      //     }
-      //   }
-      // } catch (error) {
-      //   console.warn(
-      //     "Failed to generate merkle proof, using empty hookData:",
-      //     error
-      //   );
-      //   // Continue with empty hookData if proof generation fails
-      // }
+              // Encode the proof using abi.encode (equivalent to Solidity's abi.encode(proof))
+              hookData = encodeAbiParameters(
+                [{ name: "proof", type: "bytes32[]" }],
+                [proof as `0x${string}`[]]
+              ) as `0x${string}`;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(
+          "Failed to generate merkle proof, using empty hookData:",
+          error
+        );
+        // Continue with empty hookData if proof generation fails
+      }
 
       hookData = encodeAbiParameters(
         [{ name: "proof", type: "bytes32[]" }],
