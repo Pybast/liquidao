@@ -228,15 +228,15 @@ contract LiquiDAOHook is BaseHook, Ownable, ReentrancyGuard {
      * @notice Hook called before each swap to verify authorization
      * @param sender The address initiating the swap (usually a router)
      * @param key The pool key for the swap
-     * @param params The swap parameters
      * @param hookData Encoded Merkle proof for authorization
      * @return selector The function selector for continuation
      * @return delta The before swap delta (always zero)
      * @return fee The dynamic fee (always zero)
      * @dev Verifies the swapper is authorized using Merkle proof verification
      */
-    function _beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
+    function _beforeSwap(address sender, PoolKey calldata key, SwapParams calldata, bytes calldata hookData)
         internal
+        view
         override
         returns (bytes4, BeforeSwapDelta, uint24)
     {

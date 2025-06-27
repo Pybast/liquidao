@@ -1,4 +1,4 @@
-import type { Config } from "tailwindcss"
+import type { Config } from "tailwindcss";
 
 const config: Config = {
   darkMode: ["class"],
@@ -60,7 +60,7 @@ const config: Config = {
     themes: [
       {
         chaingate: {
-          primary: "#667eea",
+          primary: "#4FC7FF",
           "primary-focus": "#5a67d8",
           "primary-content": "#ffffff",
           secondary: "#764ba2",
@@ -88,5 +88,5 @@ const config: Config = {
       },
     ],
   },
-}
-export default config
+};
+export default config;

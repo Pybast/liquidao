@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Shield, Zap } from "lucide-react";
 import { RainbowKitCustomConnectButton } from "./ConnectButton";
 
 export default function Navbar() {
