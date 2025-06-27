@@ -4,6 +4,16 @@
 
 ---
 
+## 🚀 Try the Live Demo
+
+**Experience LiquiDAO in action:** [liquidao.vercel.app](https://liquidao.vercel.app/)
+
+Create your first permissioned liquidity pool, test contributor access controls, and see how zero-fee swaps work in practice. Built on Sepolia testnet for safe experimentation.
+
+_💡 Connect your wallet and explore the future of DAO contributor liquidity_
+
+---
+
 ## 🎯 Why LiquiDAO Exists
 
 **The Problem: DAO Contributors Face Liquidity Hell**
