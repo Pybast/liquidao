@@ -1,16 +1,46 @@
 import { useState, useEffect } from "react";
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import {
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useReadContract,
+} from "wagmi";
 import { V4_ROUTER_ADDRESS, GATED_POOL_HOOK_ADDRESS } from "./helpers";
 import { v4RouterAbi } from "../../lib/contracts/v4router/v4RouterAbi";
 import { DaoLiquidityPool } from "../../lib/db/schema";
-import { parseUnits, encodeAbiParameters } from "viem";
+import { parseUnits, encodeAbiParameters, maxUint256 } from "viem";
 import { generateMerkleTree, getMerkleProof } from "@/lib/merkle";
 import { createPoolKey } from "@/utils/v4";
 
+// ERC20 ABI for allowance and approve functions
+const erc20Abi = [
+  {
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    name: "allowance",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
 export interface SwapResult {
-  status: "pending" | "success" | "idle" | "error";
+  status: "pending" | "success" | "idle" | "error" | "approving";
   txData: any;
   error?: string;
+  approvalHash?: `0x${string}`;
+  swapHash?: `0x${string}`;
 }
 
 export const useSwapTokens = (): {
@@ -25,8 +55,12 @@ export const useSwapTokens = (): {
     status: "idle",
     txData: null,
   });
+  const [checkAllowanceFor, setCheckAllowanceFor] = useState<{
+    tokenAddress: `0x${string}`;
+    userAddress: `0x${string}`;
+  } | null>(null);
 
-  const { writeContractAsync, data, isPending } = useWriteContract();
+  const { writeContractAsync, data: writeData, isPending } = useWriteContract();
 
   const {
     isLoading: isWaiting,
@@ -35,26 +69,42 @@ export const useSwapTokens = (): {
     data: txData,
     error: txError,
   } = useWaitForTransactionReceipt({
-    hash: data,
+    hash: writeData,
+  });
+
+  // Check allowance using wagmi
+  const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
+    address: checkAllowanceFor?.tokenAddress,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: checkAllowanceFor
+      ? [checkAllowanceFor.userAddress, V4_ROUTER_ADDRESS]
+      : undefined,
+    query: {
+      enabled: !!checkAllowanceFor,
+    },
   });
 
   useEffect(() => {
     if (isError) {
-      setResult({
+      setResult((prev) => ({
+        ...prev,
         status: "error",
         txData,
         error: txError?.message || "Transaction failed",
-      });
+      }));
     } else if (isPending || isWaiting) {
-      setResult({
-        status: "pending",
+      setResult((prev) => ({
+        ...prev,
+        status: prev.status === "approving" ? "approving" : "pending",
         txData,
-      });
+      }));
     } else if (isConfirmed) {
-      setResult({
+      setResult((prev) => ({
+        ...prev,
         status: "success",
         txData,
-      });
+      }));
     }
   }, [isPending, isWaiting, isConfirmed, isError, txData, txError]);
 
@@ -71,6 +121,48 @@ export const useSwapTokens = (): {
         amount.toString(),
         selectedPool.daoTokenDecimals
       );
+
+      // Set up allowance check parameters
+      setCheckAllowanceFor({
+        tokenAddress: selectedPool.daoTokenAddress as `0x${string}`,
+        userAddress,
+      });
+
+      // Refetch allowance to get the most current value
+      const { data: currentAllowance } = await refetchAllowance();
+      const allowanceAmount = currentAllowance
+        ? BigInt(currentAllowance.toString())
+        : BigInt(0);
+
+      // If allowance is insufficient, approve first
+      if (allowanceAmount < amountIn) {
+        setResult({
+          status: "approving",
+          txData: null,
+        });
+
+        console.log("Insufficient allowance, approving router...");
+        const approvalHash = await writeContractAsync({
+          address: selectedPool.daoTokenAddress as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [V4_ROUTER_ADDRESS, maxUint256], // Unlimited approval
+        });
+
+        setResult({
+          status: "approving",
+          txData: null,
+          approvalHash,
+        });
+
+        // Wait for approval transaction to be confirmed
+        // Note: The useWaitForTransactionReceipt hook will handle this automatically
+        // since we're using the same writeData from useWriteContract
+
+        // Return early - the approval will be processed by the effect above
+        // After approval is confirmed, user will need to call executeSwap again
+        return;
+      }
 
       // Calculate minimum amount out (with 2% slippage tolerance)
       const amountOutMin = parseUnits(
@@ -152,12 +244,18 @@ export const useSwapTokens = (): {
 
       console.log("Swap args:", swapArgs);
 
-      await writeContractAsync({
+      const swapHash = await writeContractAsync({
         address: V4_ROUTER_ADDRESS,
         abi: v4RouterAbi,
         functionName: "swapExactTokensForTokens",
         args: swapArgs,
       });
+
+      setResult((prev) => ({
+        ...prev,
+        status: "pending",
+        swapHash,
+      }));
     } catch (error) {
       console.error("Error executing swap:", error);
       setResult({
