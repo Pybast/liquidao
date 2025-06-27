@@ -78,8 +78,9 @@ export const useSwapTokens = (): {
         selectedPool.liquidityTokenDecimals
       );
 
-      // Determine swap direction - assuming DAO token is currency0 and liquidity token is currency1
-      const zeroForOne = true; // swapping from DAO token (currency0) to liquidity token (currency1)
+      // Determine swap direction - assuming DAO token is currency0 and liquidity token is currency1 swapping from DAO token (currency0) to liquidity token (currency1)
+      const zeroForOne =
+        selectedPool.daoTokenAddress < selectedPool.liquidityTokenAddress;
 
       // Construct the PoolKey
       const poolKey = createPoolKey({
